@@ -18,10 +18,28 @@ A Control Surface script for Ableton Live 11/12 that automatically launches the 
 
 ## Install
 
-1. Copy the `AutoPlay` folder into `Remote Scripts` inside your Live **User Library** (default: `~/Music/Ableton/User Library/Remote Scripts/` — check *Settings → Library* if you moved it).
-2. Restart Live.
-3. *Settings → Link, Tempo & MIDI*: pick **AutoPlay** in an empty Control Surface slot, Input/Output = None.
-4. Launch a scene.
+1. Download **[AutoPlay.zip](https://github.com/alwin-ui/ableton-autoplay/releases/latest/download/AutoPlay.zip)** and unzip it.
+2. Run the installer:
+   - **Mac:** right-click **Install AutoPlay (Mac).command** → **Open** → **Open**. (Right-click is needed the first time because the file is not from the App Store.)
+   - **Windows:** double-click **Install AutoPlay (Windows).bat**. If SmartScreen appears, click *More info → Run anyway*.
+
+   The installer finds your Live User Library automatically, even if you moved it.
+3. Restart Ableton Live.
+4. *Settings → Link, Tempo & MIDI*: pick **AutoPlay** in an empty Control Surface slot (Input/Output = None).
+5. Launch a scene — that's it.
+
+Mac one-liner (Terminal):
+
+```
+curl -fsSL https://raw.githubusercontent.com/alwin-ui/ableton-autoplay/main/installer/install-mac.sh | bash
+```
+
+To update, run the installer again. To uninstall, set the Control Surface slot back to None and delete the `Remote Scripts/AutoPlay` folder in your User Library.
+
+<details><summary>Manual install</summary>
+
+Copy `__init__.py` and `AutoPlay.py` into a folder named exactly `AutoPlay` inside `Remote Scripts` in your Live User Library (default: `~/Music/Ableton/User Library/` on Mac, `Documents\Ableton\User Library\` on Windows; see *Settings → Library*). The folder name must not contain hyphens.
+</details>
 
 ## Settings
 
