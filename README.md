@@ -18,6 +18,12 @@ You can put these anywhere in a scene's name:
 | `[hold]` | Loop this scene; no auto-advance |
 | `[stop]` | Stop when this scene ends (e.g. pause between songs) |
 
+### On/off switch
+
+When you open a set with clips in it, AutoPlay drops an empty Audio Effect Rack called **AutoPlay** on the Main track. Click the Main track to see it. Its power button turns AutoPlay on and off, and the status bar shows "AutoPlay ON" / "AutoPlay OFF". Turning it off lets the current song keep playing without moving on.
+
+The rack is empty, so it doesn't touch your sound. You can also use any device you like as the switch, just put it on Main and rename it "AutoPlay" (Cmd+R / Ctrl+R). Adding devices from a script needs Live 12.3 or newer; on older versions, add the switch yourself. No switch at all means AutoPlay is always on.
+
 ## Install
 
 1. Download **[AutoPlay.zip](https://github.com/alwin-ui/ableton-autoplay/releases/latest/download/AutoPlay.zip)** and unzip it.
@@ -50,6 +56,7 @@ At the top of `AutoPlay.py`:
 - `LOOP_SET`: set to `True` to jump back to the first scene after the last one.
 - `SKIP_EMPTY_SCENES`: skip scenes with no clips.
 - `END_LEAD_SECONDS`: how early (in seconds) to launch the next scene before an unwarped clip ends.
+- `ADD_SWITCH`: set to `False` if you don't want the on/off rack added to your sets.
 
 If something's off, check Live's `Log.txt` for lines starting with `AutoPlay`.
 

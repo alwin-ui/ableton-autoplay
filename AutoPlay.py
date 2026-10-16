@@ -14,6 +14,11 @@ Tags (anywhere in the scene name, case-insensitive):
     [16]  or  [16 bars]   play this scene for exactly 16 bars, then advance
     [hold]                loop this scene forever (no auto-advance)
     [stop]                stop when this scene ends (no auto-advance)
+
+On/off switch: a device named "AutoPlay" on the Main track. Its power button
+turns auto-advance on and off. If there is no such device, AutoPlay is always
+on, and (with ADD_SWITCH = True) an empty Audio Effect Rack named "AutoPlay"
+is added to any set that has clips in it.
 """
 from __future__ import absolute_import, division
 
@@ -25,6 +30,8 @@ from _Framework.ControlSurface import ControlSurface
 LOOP_SET = False          # after the last scene: True = jump to first scene, False = stop
 SKIP_EMPTY_SCENES = True  # skip scenes that contain no clips
 END_LEAD_SECONDS = 0.12   # unwarped clips: launch the next scene this long before the end
+ADD_SWITCH = True         # add the on/off switch device to the Main track if missing
+SWITCH_NAME = "AutoPlay"
 # ----------------------------------------------------------------------------
 
 BARS_RE = re.compile(r"\[\s*(\d+(?:\.\d+)?)\s*(?:bars?)?\s*\]", re.I)
@@ -57,6 +64,9 @@ class AutoPlay(ControlSurface):
         self._tracks = []
         self._dirty = True
         self._restore_quantization = None
+        self._enabled = None
+        self._switch_added = False
+        self._ticks = 0
         self._reset()
         self.song().add_tracks_listener(self._on_tracks_changed)
         self._on_tracks_changed()
@@ -107,6 +117,12 @@ class AutoPlay(ControlSurface):
             song.clip_trigger_quantization = self._restore_quantization
             self._restore_quantization = None
 
+        enabled = self._check_switch()
+
+        self._ticks += 1
+        if not self._switch_added and self._ticks % 20 == 1 and self._set_has_clips():
+            self._add_switch()
+
         if not song.is_playing:
             self._reset()
             return
@@ -115,7 +131,7 @@ class AutoPlay(ControlSurface):
             self._dirty = False
             self._detect_scene()
 
-        if self._scene_index is None or self._done:
+        if self._scene_index is None or self._done or not enabled:
             return
 
         if self._ref_clip is not None:
@@ -125,6 +141,12 @@ class AutoPlay(ControlSurface):
 
     def _tick_beats(self):
         remaining = self._start + self._length - self.song().current_song_time
+        if remaining < 0:
+            # The end went by while switched off; the scene looped, so aim for
+            # the end of the current pass instead.
+            passes = int(-remaining // self._length) + 1
+            self._start += passes * self._length
+            remaining += passes * self._length
         q = self._quantization_beats()
         # Fire inside the last quantization window so Live launches the next
         # scene exactly on the boundary where this one ends.
@@ -168,7 +190,7 @@ class AutoPlay(ControlSurface):
         if not counts:
             # Everything stopped. If an unwarped clip just ran out on its own
             # (rather than the user pressing stop) and we missed the end, advance now.
-            if (self._ref_clip is not None and not self._done
+            if (self._ref_clip is not None and not self._done and self._enabled
                     and self._last_remaining is not None
                     and self._last_remaining < 1.0):
                 self._advance(immediate=True)
@@ -202,6 +224,47 @@ class AutoPlay(ControlSurface):
         else:
             self.log_message("AutoPlay: scene %d '%s' started at %.2f, length %.2f beats"
                              % (idx + 1, scene.name, self._start, self._length))
+
+    # ---- on/off switch -----------------------------------------------------
+
+    def _find_switch(self):
+        for device in self.song().master_track.devices:
+            if device.name.strip().lower() == SWITCH_NAME.lower():
+                return device
+        return None
+
+    def _check_switch(self):
+        """Read the switch device's power button; no device means on."""
+        device = self._find_switch()
+        enabled = True
+        if device is not None and len(device.parameters) > 0:
+            enabled = device.parameters[0].value >= 0.5  # "Device On"
+        if enabled != self._enabled:
+            if self._enabled is not None:
+                self.show_message("AutoPlay %s" % ("ON" if enabled else "OFF"))
+            self.log_message("AutoPlay %s" % ("on" if enabled else "off"))
+            self._enabled = enabled
+        return enabled
+
+    def _set_has_clips(self):
+        for track in self.song().tracks:
+            for slot in track.clip_slots:
+                if slot.has_clip:
+                    return True
+        return False
+
+    def _add_switch(self):
+        if not ADD_SWITCH or self._switch_added or self._find_switch() is not None:
+            return
+        self._switch_added = True  # only try once per session
+        master = self.song().master_track
+        try:
+            master.insert_device("Audio Effect Rack", len(master.devices))
+            master.devices[-1].name = SWITCH_NAME
+            self.show_message("AutoPlay: added on/off switch to the Main track")
+            self.log_message("AutoPlay: added switch device")
+        except Exception as e:
+            self.log_message("AutoPlay: could not add switch device: %r" % (e,))
 
     def _beats_per_bar(self):
         song = self.song()
