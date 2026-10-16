@@ -24,6 +24,19 @@ When you open a set with clips in it, AutoPlay drops an empty Audio Effect Rack 
 
 The rack is empty, so it doesn't touch your sound. You can also use any device you like as the switch, just put it on Main and rename it "AutoPlay" (Cmd+R / Ctrl+R). Adding devices from a script needs Live 12.3 or newer; on older versions, add the switch yourself. No switch at all means AutoPlay is always on.
 
+#### Map it to a button on your controller
+
+The switch's power button is a normal Live control, so you can map it like anything else:
+
+1. Click the Main track so the AutoPlay rack shows in the device view.
+2. Press **Cmd+M** (Ctrl+M on Windows) to enter MIDI Map mode.
+3. Click the rack's power button, then press a pad or button on your controller.
+4. Press **Cmd+M** again to leave MIDI Map mode.
+
+Each press now toggles AutoPlay. For a computer key instead, do the same with **Cmd+K** / **Ctrl+K**. If nothing happens, check that **Remote** is ticked for your controller's input in *Settings → Link, Tempo & MIDI*.
+
+Mappings are saved with the set. To have the mapped switch in every new set, set it up once in an empty set and save it as your default (*Settings → File & Folder → Save Current Set as Default*).
+
 ## Install
 
 1. Download **[AutoPlay.zip](https://github.com/alwin-ui/ableton-autoplay/releases/latest/download/AutoPlay.zip)** and unzip it.
