@@ -15,7 +15,7 @@ You can put these anywhere in a scene's name:
 | Tag | Effect |
 |---|---|
 | `[16]` or `[16 bars]` | Play this scene for exactly 16 bars, then advance |
-| `[hold]` | Loop this scene; no auto-advance |
+| `[hold]` | Repeat this scene until you launch another one (handy for stretching an intro) |
 | `[stop]` | Stop when this scene ends (e.g. pause between songs) |
 
 ### On/off switch

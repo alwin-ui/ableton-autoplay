@@ -12,7 +12,7 @@ How a scene's end is found:
 Tags (anywhere in the scene name, case-insensitive):
 
     [16]  or  [16 bars]   play this scene for exactly 16 bars, then advance
-    [hold]                loop this scene forever (no auto-advance)
+    [hold]                repeat this scene until you launch another one
     [stop]                stop when this scene ends (no auto-advance)
 
 On/off switch: a device named "AutoPlay" on the Main track. Its power button
@@ -55,6 +55,16 @@ QUANTIZATION = {
     12: (1 / 6.0, "beat"),
     13: (0.125, "beat"),  # 1/32
 }
+
+
+def _clip_start(clip):
+    return max(clip.start_marker, clip.loop_start)
+
+
+def _clip_end(clip):
+    # With Loop off, the end flag shown in the clip view is loop_end;
+    # end_marker can stay at the end of the file.
+    return min(clip.end_marker, clip.loop_end)
 
 
 class AutoPlay(ControlSurface):
@@ -161,12 +171,22 @@ class AutoPlay(ControlSurface):
             if not clip.is_playing:
                 return  # handled in _detect_scene when the track stops
             # Unwarped clips report position and markers in seconds.
-            remaining = clip.end_marker - clip.playing_position
+            remaining = _clip_end(clip) - clip.playing_position
         except Exception:
             self._ref_clip = None  # clip was deleted
             return
         self._last_remaining = remaining
+        if self._rearm:
+            # A [hold] relaunch was just fired; wait until playback is back
+            # near the start before watching for the end again.
+            if remaining > END_LEAD_SECONDS + 0.5:
+                self._rearm = False
+            return
         if remaining <= END_LEAD_SECONDS:
+            if self._is_hold():
+                self._fire_now(self.song().scenes[self._scene_index])
+                self._rearm = True
+                return
             self._done = True
             self._advance(immediate=True)
 
@@ -179,6 +199,7 @@ class AutoPlay(ControlSurface):
         self._ref_clip = None
         self._last_remaining = None
         self._done = False
+        self._rearm = False
 
     def _detect_scene(self):
         """Work out which scene is playing from the tracks' playing slots."""
@@ -213,14 +234,16 @@ class AutoPlay(ControlSurface):
             self._ref_clip = self._longest_unwarped_clip(idx)
             if self._ref_clip is None:
                 self._length = self._longest_beat_clip(idx)
-        self._done = bool(HOLD_RE.search(scene.name))
+        self._done = self._ref_clip is None and bool(HOLD_RE.search(scene.name))
 
         if self._ref_clip is not None:
             c = self._ref_clip
             self.log_message("AutoPlay: scene %d '%s' started, unwarped clip '%s' "
-                             "start %.3f end %.3f pos %.3f (seconds)"
-                             % (idx + 1, scene.name, c.name, c.start_marker,
-                                c.end_marker, c.playing_position))
+                             "start %.3f end %.3f pos %.3f (seconds; "
+                             "end_marker %.3f loop_end %.3f)"
+                             % (idx + 1, scene.name, c.name, _clip_start(c),
+                                _clip_end(c), c.playing_position,
+                                c.end_marker, c.loop_end))
         else:
             self.log_message("AutoPlay: scene %d '%s' started at %.2f, length %.2f beats"
                              % (idx + 1, scene.name, self._start, self._length))
@@ -284,7 +307,7 @@ class AutoPlay(ControlSurface):
         best, best_len = None, 0.0
         for clip in self._scene_clips(idx):
             if clip.is_audio_clip and not clip.warping and not clip.looping:
-                length = clip.end_marker - clip.start_marker
+                length = _clip_end(clip) - _clip_start(clip)
                 if length > best_len:
                     best, best_len = clip, length
         return best
@@ -302,9 +325,25 @@ class AutoPlay(ControlSurface):
             return True
         return False
 
+    def _is_hold(self):
+        return bool(HOLD_RE.search(self.song().scenes[self._scene_index].name))
+
+    def _fire_now(self, scene):
+        """Launch a scene right away instead of on the next bar line;
+        global quantization is put back on the next tick."""
+        song = self.song()
+        if self._restore_quantization is None:
+            self._restore_quantization = song.clip_trigger_quantization
+        song.clip_trigger_quantization = 0
+        scene.fire()
+
     def _advance(self, immediate):
         song = self.song()
         current = song.scenes[self._scene_index]
+        if immediate and self._is_hold():
+            # A [hold] song stopped before we caught its end: start it again.
+            self._fire_now(current)
+            return
         if STOP_RE.search(current.name):
             if not immediate:
                 song.stop_all_clips()
@@ -329,9 +368,7 @@ class AutoPlay(ControlSurface):
 
         nxt = song.scenes[idx]
         if immediate:
-            # Launch right now rather than waiting for the next bar line;
-            # global quantization is put back on the next tick.
-            self._restore_quantization = song.clip_trigger_quantization
-            song.clip_trigger_quantization = 0
-        nxt.fire()
+            self._fire_now(nxt)
+        else:
+            nxt.fire()
         self.show_message("AutoPlay: next -> %s" % (nxt.name or "Scene %d" % (idx + 1)))
